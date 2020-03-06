@@ -1,0 +1,41 @@
+`default_nettype none
+
+
+`define SID1_START    (16'h0100)
+`define SID1_END      (16'h0120)
+
+`define SAMPLE0_START (16'h1000)
+`define SAMPLE0_END   (16'h1200)
+
+`define SAMPLE1_START (16'h1200)
+`define SAMPLE1_END   (16'h1400)
+
+
+`define SID_OFFSET_VOICE1_FREQ_L  (5'h00)
+`define SID_OFFSET_VOICE1_FREQ_H  (5'h01)
+`define SID_OFFSET_VOICE1_PW_L    (5'h02)
+`define SID_OFFSET_VOICE1_PW_H    (5'h03)
+`define SID_OFFSET_VOICE1_CONTROL (5'h04)
+`define SID_OFFSET_VOICE1_ATTDEC  (5'h05)
+`define SID_OFFSET_VOICE1_SSTREL  (5'h06)
+
+`define SID_OFFSET_VOICE2_FREQ_L  (5'h07)
+`define SID_OFFSET_VOICE2_FREQ_H  (5'h08)
+`define SID_OFFSET_VOICE2_PW_L    (5'h09)
+`define SID_OFFSET_VOICE2_PW_H    (5'h0A)
+`define SID_OFFSET_VOICE2_CONTROL (5'h0B)
+`define SID_OFFSET_VOICE2_ATTDEC  (5'h0C)
+`define SID_OFFSET_VOICE2_SSTREL  (5'h0D)
+
+`define SID_OFFSET_VOICE3_FREQ_L  (5'h0E)
+`define SID_OFFSET_VOICE3_FREQ_H  (5'h0F)
+`define SID_OFFSET_VOICE3_PW_L    (5'h10)
+`define SID_OFFSET_VOICE3_PW_H    (5'h11)
+`define SID_OFFSET_VOICE3_CONTROL (5'h12)
+`define SID_OFFSET_VOICE3_ATTDEC  (5'h13)
+`define SID_OFFSET_VOICE3_SSTREL  (5'h14)
+
+`define SID_OFFSET_FILT_L         (5'h15)
+`define SID_OFFSET_FILT_H         (5'h16)
+`define SID_OFFSET_RESFILT        (5'h17)
+`define SID_OFFSET_MODEVOL        (5'h18)

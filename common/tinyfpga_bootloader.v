@@ -22,6 +22,16 @@ module tinyfpga_bootloader (
   output spi_mosi,
   input  spi_miso,
 
+  // auxilary interface
+  output       aux_active,          // when the opcode for aux is used, this becomes active and remains active until 'aux_complete' is high
+  input        aux_complete,        // this indicates that the opcode operation is complete
+  output [7:0] aux_data_out,        // usb to aux port data
+  output reg   aux_data_out_valid,  // pulses when output data is valid
+  input        aux_data_out_ready,  // flow control - if expecting more bytes hold high
+  input [7:0]  aux_data_in,         // aux port data to usb
+  input        aux_data_in_valid,   // pulse valid (only when ready) to latch in the data
+  output reg   aux_data_in_ready,   // for flow control - if not ready, do not pulse valid
+                            
   // when asserted it indicates the bootloader is ready for the FPGA to load
   // the user config.  different FPGAs use different primitives for this
   // function.
@@ -129,12 +139,12 @@ module tinyfpga_bootloader (
   wire sof_valid;
   wire [10:0] frame_index;
 
-  reg [31:0] host_presence_timer = 0;
-  reg host_presence_timeout = 0;
+  //reg [31:0] host_presence_timer = 0;
+  //reg host_presence_timeout = 0;
 
-  wire boot_to_user_design;
+  wire      boot_to_user_design;
 
-  assign boot = host_presence_timeout || boot_to_user_design;
+  assign boot = 1'b0; // host_presence_timeout || boot_to_user_design;
 
   usb_serial_ctrl_ep ctrl_ep_inst (
     .clk(clk),
@@ -193,6 +203,16 @@ module tinyfpga_bootloader (
     .spi_mosi(spi_mosi),
     .spi_miso(spi_miso),
 
+    // aux interface
+    .aux_active(aux_active),
+    .aux_complete(aux_complete),
+    .aux_data_out(aux_data_out),
+    .aux_data_out_valid(aux_data_out_valid),
+    .aux_data_out_ready(aux_data_out_ready),
+    .aux_data_in(aux_data_in),
+    .aux_data_in_valid(aux_data_in_valid),
+    .aux_data_in_ready(aux_data_in_ready),
+                                            
     // warm boot interface
     .boot_to_user_design(boot_to_user_design)
   );
@@ -248,16 +268,16 @@ module tinyfpga_bootloader (
   // host presence detection
   ////////////////////////////////////////////////////////////////////////////////
 
-  always @(posedge clk) begin
-    if (sof_valid) begin
-      host_presence_timer <= 0;
-      host_presence_timeout <= 0;
-    end else begin
-      host_presence_timer <= host_presence_timer + 1;
-    end
-
-    if (host_presence_timer > 196000000) begin
-      host_presence_timeout <= 1;
-    end
-  end
+  //always @(posedge clk) begin
+  //  if (sof_valid) begin
+  //    host_presence_timer <= 0;
+  //    host_presence_timeout <= 0;
+  //  end else begin
+  //    host_presence_timer <= host_presence_timer + 1;
+  //  end
+  //
+  //  if (host_presence_timer > 196000000) begin
+  //    host_presence_timeout <= 1;
+  //  end
+  //end
 endmodule

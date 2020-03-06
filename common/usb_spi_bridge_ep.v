@@ -1,47 +1,59 @@
 module usb_spi_bridge_ep (
-  input clk,
-  input reset,
+  input        clk,
+  input        reset,
 
 
   ////////////////////
   // out endpoint interface 
   ////////////////////
-  output out_ep_req,
-  input out_ep_grant,
-  input out_ep_data_avail,
-  input out_ep_setup,
-  output out_ep_data_get,
-  input [7:0] out_ep_data,
-  output out_ep_stall,
-  input out_ep_acked,
+  output       out_ep_req,
+  input        out_ep_grant,
+  input        out_ep_data_avail,
+  input        out_ep_setup,
+  output       out_ep_data_get,
+  input [7:0]  out_ep_data,
+  output       out_ep_stall,
+  input        out_ep_acked,
 
 
   ////////////////////
   // in endpoint interface 
   ////////////////////
-  output reg in_ep_req = 0,
-  input in_ep_grant,
-  input in_ep_data_free,
-  output reg in_ep_data_put = 0,
+  output reg   in_ep_req = 0,
+  input        in_ep_grant,
+  input        in_ep_data_free,
+  output reg   in_ep_data_put = 0,
   output [7:0] in_ep_data,
-  output reg in_ep_data_done = 0,
-  output in_ep_stall,
-  input in_ep_acked,
+  output reg   in_ep_data_done = 0,
+  output       in_ep_stall,
+  input        in_ep_acked,
 
 
   ////////////////////
   // spi interface 
   ////////////////////
-  output reg spi_cs_b,
-  output reg spi_sck,
-  output spi_mosi,
-  input spi_miso,
+  output reg   spi_cs_b,
+  output reg   spi_sck,
+  output       spi_mosi,
+  input        spi_miso,
 
+
+  ////////////////////
+  // auxilary interface
+  ////////////////////
+  output       aux_active,          // when the opcode for aux is used, this becomes active and remains active until 'aux_complete' is high
+  input        aux_complete,        // this indicates that the opcode operation is complete
+  output [7:0] aux_data_out,        // usb to aux port data
+  output reg   aux_data_out_valid,  // pulses when output data is valid
+  input        aux_data_out_ready,  // flow control - if expecting more bytes hold high
+  input [7:0]  aux_data_in,         // aux port data to usb
+  input        aux_data_in_valid,   // pulse valid (only when ready) to latch in the data
+  output       aux_data_in_ready,   // for flow control - if not ready, do not pulse valid
   
   ////////////////////
   // warm boot interface
   ////////////////////
-  output reg boot_to_user_design = 0
+  output reg   boot_to_user_design = 0
 );
 
 
@@ -64,18 +76,17 @@ module usb_spi_bridge_ep (
   reg [3:0] cmd_state = 0;
   reg [3:0] cmd_state_next = 0;
 
-  localparam CMD_IDLE = 0;
-  localparam CMD_PRE = 1;
-  localparam CMD_OP_BOOT = 2;
-
-  //localparam CMD_OP_XFR = 3;
+  localparam CMD_IDLE        = 0;
+  localparam CMD_PRE         = 1;
+  localparam CMD_OP_BOOT     = 2;
   localparam CMD_SAVE_DOL_LO = 3;
   localparam CMD_SAVE_DOL_HI = 4;
   localparam CMD_SAVE_DIL_LO = 5;
   localparam CMD_SAVE_DIL_HI = 6;
-  localparam CMD_DO_OUT = 7;
-  localparam CMD_DO_IN = 9;
-
+  localparam CMD_DO_OUT      = 7;
+  localparam CMD_DO_IN       = 8;
+  localparam CMD_AUX         = 9;
+  
   reg get_cmd_out_data = 0;
   reg get_cmd_out_data_q = 0;
   reg spi_has_more_in_bytes = 0;
@@ -105,17 +116,40 @@ module usb_spi_bridge_ep (
   reg [3:0] spi_bit_counter = 0;
 
   reg spi_put_last_in_byte = 0;
+
+
+  ////////////////////////////////////////////////////////////////////////////////
+  // aux protocol engine
+  ////////////////////////////////////////////////////////////////////////////////
+  //output       aux_active,          // when the opcode for aux is used, this becomes active and remains active until 'aux_complete' is high
+  //input        aux_complete,        // this indicates that the opcode operation is complete
+  //output [7:0] aux_data_out,        // usb to aux port data
+  //output       aux_data_out_valid,  // pulses when output data is valid
+  //input [7:0]  aux_data_in,         // aux port data to usb
+  //input        aux_data_in_valid,   // pulse valid (only when ready) to latch in the data
+  //output       aux_data_in_ready,   // for flow control - if not ready, do not pulse valid
+
+  reg aux_selected;
+  assign aux_active = aux_selected;
+
+  reg [7:0] aux_data_out_i;
+  assign aux_data_out = aux_data_out_i;
+  always @(posedge clk) aux_data_out_valid <= (get_cmd_out_data_q && aux_selected);
+    
+  assign aux_data_in_ready = aux_selected && out_ep_grant && out_ep_data_avail;
+
   ////////////////////////////////////////////////////////////////////////////////
   // other glue logic
   ////////////////////////////////////////////////////////////////////////////////
   assign out_ep_req = out_ep_data_avail;
-  assign out_ep_data_get = (get_spi_out_data || get_cmd_out_data) && out_ep_grant; 
+  assign out_ep_data_get = (get_spi_out_data || get_cmd_out_data || (aux_data_in_valid && aux_selected)) && out_ep_grant; 
   
   reg in_ep_req_i = 0;
-  always @(posedge clk) in_ep_req_i <= (spi_has_more_in_bytes || spi_put_last_in_byte) && in_ep_data_free;
+  always @(posedge clk) in_ep_req_i <= (spi_has_more_in_bytes || spi_put_last_in_byte || (aux_data_out_ready && aux_selected)) && in_ep_data_free;
   always @(posedge clk) in_ep_req <= in_ep_req_i;
-  always @(posedge clk) in_ep_data_put <= put_spi_in_data;
-  assign in_ep_data = spi_in_data[7:0];
+  // added a mux so the data out can be from aux or spi
+  always @(posedge clk) in_ep_data_put <= put_spi_in_data || (aux_data_out_ready && aux_selected); // i'm not sure how this works
+  assign in_ep_data = (aux_selected ? aux_data_in : spi_in_data[7:0]);
 
   assign spi_mosi = spi_out_data[8];
 
@@ -144,15 +178,19 @@ module usb_spi_bridge_ep (
     spi_has_more_out_bytes <= 1'b0;
     in_ep_data_done_i <= 1'b0;
     spi_start_new_xfr <= 1'b0;
-
+    aux_selected <= 1'b0;
+    
     case (cmd_state)
       CMD_IDLE : begin
         get_cmd_out_data <= out_data_ready;
         if (out_data_valid && out_ep_data == 8'h0) begin
           cmd_state_next <= CMD_OP_BOOT;
-
+          
         end else if (out_data_valid && out_ep_data == 8'h1) begin  
           cmd_state_next <= CMD_SAVE_DOL_LO;    
+          
+        end else if (out_data_valid && out_ep_data == "?") begin
+          cmd_state_next <= CMD_AUX;
   
         end else begin
           cmd_state_next <= CMD_IDLE;
@@ -234,6 +272,19 @@ module usb_spi_bridge_ep (
         end
       end
 
+      CMD_AUX : begin
+        aux_selected <= 1'b1;
+        
+        if (aux_complete == 1) begin
+          cmd_state_next    <= CMD_IDLE;
+          in_ep_data_done_i <= 1'b1;
+        end
+        else begin
+          cmd_state_next   <= CMD_AUX;
+          get_cmd_out_data <= out_data_ready;
+        end
+      end
+    
       default begin
         cmd_state_next <= CMD_IDLE;
       end
@@ -250,6 +301,7 @@ module usb_spi_bridge_ep (
         CMD_SAVE_DOL_HI : data_out_length[15:8] <= out_ep_data;
         CMD_SAVE_DIL_LO : data_in_length[7:0] <= out_ep_data;
         CMD_SAVE_DIL_HI : data_in_length[15:8] <= out_ep_data;
+        CMD_AUX         : aux_data_out_i <= out_ep_data;
       endcase
     end
 
@@ -333,9 +385,9 @@ module usb_spi_bridge_ep (
 
         if (spi_has_more_out_bytes) begin
           if (spi_byte_out_xfr_ready) begin
-	    spi_state_next <= SPI_START;
+            spi_state_next <= SPI_START;
           end else begin
-	    spi_state_next <= SPI_END;
+            spi_state_next <= SPI_END;
           end
 
         end else if (spi_dir_transition) begin
