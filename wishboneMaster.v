@@ -123,13 +123,11 @@ module wishbone_master #(
             next_length          = payload_length;
             
             if (start_read) begin
-                read_busy      = 1'b1;
                 next_state     = STATE_START_READ;
                 next_completed = 1'b0;
                 next_timeout   = 1'b0;
             end
             else if (start_write) begin
-                write_busy     = 1'b1;
                 next_state     = STATE_START_WRITE;
                 next_completed = 1'b0;
                 next_timeout   = 1'b0;

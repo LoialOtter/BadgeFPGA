@@ -283,6 +283,13 @@ module sid_chip #(
         voice1_last_update <= voice1_update;
     end
     wire voice1_update_pulse = voice1_update & (voice1_last_update ^ voice1_update);
+
+    reg [11:0] voice1_pw_reg;
+    always @(posedge local_clock) begin
+        if (voice1_update_pulse) begin
+            voice1_pw_reg <= voice1_pw;
+        end
+    end
     
     localparam PRBS_SIZE = 24;
     reg signed [PRBS_SIZE-1:0] prbs;
@@ -290,12 +297,12 @@ module sid_chip #(
         if (rst) prbs <= 42; // totally random seed value chosen by fair dice role, guaranteed to be random!
         else if (voice1_update_pulse) prbs <= { prbs[PRBS_SIZE-2:0], prbs[PRBS_SIZE-1] ^ prbs[PRBS_SIZE-2] };
     end
-
+        
     wire [7:0] voice1_pos              = voice1_address[COUNT_I-1:COUNT_I-8];
     
     wire signed [7:0] voice1_saw_out   = voice1_pos;
     wire signed [7:0] voice1_tri_out   = {(voice1_pos[7] ? 127-voice1_pos[6:0] : voice1_pos[6:0]), 1'b0};
-    wire signed [7:0] voice1_pulse_out = (voice1_pos > voice1_pw[11:4]) ? 0 : 255;
+    wire signed [7:0] voice1_pulse_out = (voice1_pos > voice1_pw_reg[11:4]) ? 0 : 255;
     wire signed [7:0] voice1_noise_out = prbs[PRBS_SIZE-1:PRBS_SIZE-8];
     
     wire signed [7:0] voice1_wave_out  = (|{voice1_saw,voice1_tri,voice1_pulse,voice1_noise} ? // if any waveform is used
@@ -304,7 +311,7 @@ module sid_chip #(
                                            (voice1_pulse ? voice1_pulse_out : 255) &    
                                            (voice1_noise ? voice1_noise_out : 255))  : 127);   // otherwise output mid-level
 
-    localparam AVERAGE_LENGTH = 18;
+    localparam AVERAGE_LENGTH = 24;
     reg [AVERAGE_LENGTH-1:0] voice1_average = 1<<(AVERAGE_LENGTH-2);
     always @(posedge local_clock) begin
         voice1_average <= voice1_average - voice1_average[AVERAGE_LENGTH-1:AVERAGE_LENGTH-8] + voice1_wave_out;
@@ -480,7 +487,7 @@ module sid_chip #(
     end
 
     always @(*) begin
-        if (error_accumulator + audio_abs > 16'h80) begin
+        if (error_accumulator + audio_abs >= 16'h80) begin
             next_error_accumulator = error_accumulator + audio_abs - 16'h80;
             next_out               = 1;
         end

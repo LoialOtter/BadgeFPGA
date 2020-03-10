@@ -1,20 +1,31 @@
-module main (
-  input  pin_clk,
+module top (
+    input  pin_clk,
 
-  inout  pin_usbp,
-  inout  pin_usbn,
-  output pin_pu,
+    inout  pin_usbp,
+    inout  pin_usbn,
+    output pin_pu,
 
-  output pin_led,
+    output pin_led,
 
-  input  pin_29_miso,
-  output pin_30_cs,
-  output pin_31_mosi,
-  output pin_32_sck,
+    //input  pin_29_miso,
+    //output pin_30_cs,
+    //output pin_31_mosi,
+    //output pin_32_sck,
 
-  output pin_1,
-  output pin_2
-);
+    output pin_1,
+    output pin_2,
+             
+    output pin_14,
+    output pin_15,
+    output pin_16,
+    output pin_17,
+    output pin_18,
+    output pin_19,
+    output pin_20,
+    output pin_21,
+    output pin_22
+    );
+
     ////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////
     ////////
@@ -23,9 +34,7 @@ module main (
     ////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////
     wire clk_48mhz;
-    wire lock;
-    wire reset = !lock;
-
+    wire clk_locked;
     SB_PLL40_CORE #(
         .DIVR(4'b0000),
         .DIVF(7'b0101111),
@@ -44,60 +53,42 @@ module main (
         .PLLOUTCORE(clk_48mhz),
         .PLLOUTGLOBAL(),
         .EXTFEEDBACK(),
-        .DYNAMICDELAY(),
         .RESETB(1'b1),
         .BYPASS(1'b0),
         .LATCHINPUTVALUE(),
-        .LOCK(lock),
+        .LOCK(clk_locked),
         .SDI(),
         .SDO(),
         .SCLK()
     );
 
-    reg clk_24mhz;
-    reg clk_12mhz;
-    always @(posedge clk_48mhz) clk_24mhz = !clk_24mhz;
-    always @(posedge clk_24mhz) clk_12mhz = !clk_12mhz;
-
-    wire clk = clk_12mhz; // quarter speed clock
-
-
-    reg         rst;
-    reg [3:0] not_already_reset = 15;
-    always @(posedge clk) begin
-        if (not_already_reset) begin
-            not_already_reset <= not_already_reset - 1;
-            rst               <= 1;
-        end
-        else begin
-            rst <= 0;
-        end
-    end
     
-    ////////////////////////////////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////////////
-    ////////
-    //////// interface with iCE40 warmboot/multiboot capability
-    ////////
-    ////////////////////////////////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////////////
-    wire boot;
 
-    SB_WARMBOOT warmboot_inst (
-        .S1(1'b0),
-        .S0(1'b1),
-        .BOOT(boot)
-    );
+    
+    localparam TEXT_LEN = 13;
 
+    assign pin_led = 1;
 
-    ////////////////////////////////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////////////
-    ////////
-    //////// wishbone
-    ////////
-    ////////////////////////////////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////////////
+    
+    // Generate reset signal
+    // Generate reset signal
+    reg [5:0] reset_cnt = 0;
+    wire reset = ~reset_cnt[5];
+    always @(posedge clk_48mhz)
+        if ( clk_locked )
+            reset_cnt <= reset_cnt + reset;
 
+    reg        clk_24mhz = 0;
+    always @(posedge clk_48mhz) clk_24mhz <= ~clk_24mhz;
+
+    reg        clk_12mhz = 0;
+    always @(posedge clk_24mhz) clk_12mhz <= ~clk_12mhz;
+
+    wire clk;
+    wire rst;
+    assign clk = clk_12mhz;
+    assign rst = reset;
+    
     //---------------------------------------------------------------
     // Wishbone arbitration connections
     reg [7:0] data_in;
@@ -106,17 +97,17 @@ module main (
     reg [7:0] led_data;
     reg       led_ack;
     
-    //wire [7:0] mem_data;
-    //wire       mem_ack;
+    wire [7:0] mem_data;
+    wire       mem_ack;
     
     wire [7:0] sid1_data;
     wire       sid1_ack;
 
-    assign ack = |{led_ack, sid1_ack};//, mem_ack
+    assign ack = |{led_ack, sid1_ack, mem_ack};
     
     always @(*) begin
         if      (led_ack)  begin  data_in = led_data;  end
-        //else if (mem_ack)  begin  data_in = mem_data;  end
+        else if (mem_ack)  begin  data_in = mem_data;  end
         else if (sid1_ack) begin  data_in = sid1_data; end
         else               begin  data_in = 8'd0;      end
     end
@@ -190,25 +181,26 @@ module main (
     //assign test_cti   = 0;
     
     
-    //wishbone_memory #(
-    //    .ADDRESS_WIDTH (16),
-    //    .DATA_WIDTH    (8),
-    //    .DATA_BYTES    (1),
-    //    .BASE_ADDRESS  (16'h0200),
-    //    .MEMORY_SIZE   (1024)
-    //) memory_inst (
-    //    .rst_i ( rst ),
-    //    .clk_i ( clk ),
-    //    .adr_i ( adr ),
-    //    .dat_i ( data ),
-    //    .dat_o ( mem_data ),
-    //    .we_i  ( we ),
-    //    .sel_i ( sel ),
-    //    .stb_i ( stb ),
-    //    .cyc_i ( cycle ),
-    //    .ack_o ( mem_ack ),
-    //    .cti_i ( cti )
-    //);
+    wishbone_memory #(
+        .ADDRESS_WIDTH (16),
+        .DATA_WIDTH    (8),
+        .DATA_BYTES    (1),
+        .BASE_ADDRESS  (16'h0200),
+        .MEMORY_SIZE   (1024)
+    ) memory_inst (
+        .rst_i ( rst ),
+        .clk_i ( clk ),
+        .adr_i ( adr ),
+        .dat_i ( data ),
+        .dat_o ( mem_data ),
+        .we_i  ( we ),
+        .sel_i ( sel ),
+        .stb_i ( stb ),
+        .cyc_i ( cycle ),
+        .ack_o ( mem_ack ),
+        .cti_i ( cti )
+    );
+    
 
     sid_chip #(
         .ADDRESS_WIDTH (16),
@@ -228,13 +220,10 @@ module main (
         .ack_o ( sid1_ack ),
         .cti_i ( cti ),
 
-        .audio_p (pin_1),
-        .audio_n (pin_2)
+        .audio_p ( pin_1 ),
+        .audio_n ( pin_2 )
     );
-    
 
-
-    
     reg [4:0]                leds;
     reg [4:0]                next_leds;
     // simple LED module to check the wishbone interface
@@ -260,24 +249,19 @@ module main (
         end
     end
 
+    //---------------------------------------------------------------
+    // uart and protocol
     
-    ////////////////////////////////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////////////
-    ////////
-    //////// instantiate the aux to wishbone interface
-    ////////
-    ////////////////////////////////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////////////
+    
 
-    wire       aux_active;
-    wire       aux_complete;
-    wire [7:0] aux_data_out;
-    wire       aux_data_out_valid;
-    wire       aux_data_out_ready;
-    wire [7:0] aux_data_in;
-    wire       aux_data_in_valid;
-    wire       aux_data_in_ready;
-    
+    wire [7:0] uart_in_data;
+    wire       uart_in_valid;
+    wire       uart_in_ready;
+    wire [7:0] uart_out_data;
+    wire       uart_out_valid;
+    wire       uart_out_ready;
+
+
     protocol #(
         .ADDRESS_WIDTH (16),
         .DATA_WIDTH    (8 ),
@@ -286,125 +270,97 @@ module main (
         .MAX_PAYLOAD   (4 )
     ) protocol_inst (
         // Wishbone interface
-        .rst_i ( rst ),
-        .clk_i ( clk ),
+        .rst_i     ( rst ),
+        .clk_i     ( clk ),
+        .clk_48mhz ( clk_48mhz ),
 
-        .adr_o ( rs232_adr ),
-        .dat_i ( data_in ),
-        .dat_o ( rs232_data ),
-        .we_o  ( rs232_we  ),
-        .sel_o ( rs232_sel ),
-        .stb_o ( rs232_stb ),
+        .adr_o ( rs232_adr      ),
+        .dat_i ( data_in        ),
+        .dat_o ( rs232_data     ),
+        .we_o  ( rs232_we       ),
+        .sel_o ( rs232_sel      ),
+        .stb_o ( rs232_stb      ),
         .cyc_i ( rs232_cycle_in ),
-        .cyc_o ( rs232_cycle ),
-        .ack_i ( ack ),
-        .cti_o ( rs232_cti ),
+        .cyc_o ( rs232_cycle    ),
+        .ack_i ( ack            ),
+        .cti_o ( rs232_cti      ),
         
-        // Aux interfaces
-        .aux_active    ( aux_active         ),
-        .aux_complete  ( aux_complete       ),
-        .rx_byte       ( aux_data_out       ),
-        .rx_byte_valid ( aux_data_out_valid ),
-        .rx_ready      ( aux_data_out_ready ),
-        .tx_byte       ( aux_data_in        ),
-        .tx_byte_valid ( aux_data_in_valid  ),
-        .tx_ready      ( aux_data_in_ready  )
+        // Uart interfaces
+        .rx_byte       ( uart_out_data ),
+        .rx_byte_valid ( uart_out_valid ),
+        .rx_ready      ( uart_out_ready ),
+
+        .tx_byte       ( uart_in_data ),
+        .tx_byte_valid ( uart_in_valid ),
+        .tx_ready      ( uart_in_ready ), 
     );
-  
-    ////////////////////////////////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////////////
-    ////////
-    //////// instantiate tinyfpga bootloader
-    ////////
-    ////////////////////////////////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////////////
+
+    
+    // usb uart
+    usb_uart_core uart (
+        .clk_48mhz     ( clk_48mhz      ),
+        .reset         ( reset          ),
+     
+        .usb_p_tx      ( usb_p_tx       ),
+        .usb_n_tx      ( usb_n_tx       ),
+        .usb_p_rx      ( usb_p_rx       ),
+        .usb_n_rx      ( usb_n_rx       ),
+        .usb_tx_en     ( usb_tx_en      ),
+     
+        // uart pipeline in (out of the device, into the host)
+        .uart_in_data  ( uart_in_data   ),
+        .uart_in_valid ( uart_in_valid  ),
+        .uart_in_ready ( uart_in_ready  ),
+     
+        // uart pipeline out (into the device, out of the host)
+        .uart_out_data ( uart_out_data  ),
+        .uart_out_valid( uart_out_valid ),
+        .uart_out_ready( uart_out_ready ),
+     
+        .debug(  )
+    );
+    assign pin_14 = uart_in_data[0];
+    assign pin_15 = uart_in_valid;
+    assign pin_16 = uart_in_ready;
+    assign pin_17 = uart_out_data[0];
+    assign pin_18 = uart_out_valid;
+    assign pin_19 = uart_out_ready;
+    
     wire usb_p_tx;
     wire usb_n_tx;
     wire usb_p_rx;
     wire usb_n_rx;
-    wire usb_p_rx_io;
-    wire usb_n_rx_io;
     wire usb_tx_en;
+    wire usb_p_in;
+    wire usb_n_in;
 
-    tinyfpga_bootloader tinyfpga_bootloader_inst (
-        .clk_48mhz(clk_48mhz),
-        .clk(clk),
-        .reset(reset),
-        .usb_p_tx(usb_p_tx),
-        .usb_n_tx(usb_n_tx),
-        .usb_p_rx(usb_p_rx),
-        .usb_n_rx(usb_n_rx),
-        .usb_tx_en(usb_tx_en),
-        .led(pin_led),
-        .spi_miso(pin_29_miso),
-        .spi_cs(pin_30_cs),
-        .spi_mosi(pin_31_mosi),
-        .spi_sck(pin_32_sck),
-        .aux_active(aux_active),
-        .aux_complete(aux_complete),
-        .aux_data_out(aux_data_out),
-        .aux_data_out_valid(aux_data_out_valid),
-        .aux_data_out_ready(aux_data_out_ready),
-        .aux_data_in(aux_data_in),
-        .aux_data_in_valid(aux_data_in_valid),
-        .aux_data_in_ready(aux_data_in_ready),
-        .boot(boot)
+    assign pin_pu = 1'b1;
+    
+    assign usb_p_rx = usb_tx_en ? 1'b1 : usb_p_in;
+    assign usb_n_rx = usb_tx_en ? 1'b0 : usb_n_in;
+    
+    SB_IO #(
+        .PIN_TYPE(6'b 1010_01), // PIN_OUTPUT_TRISTATE - PIN_INPUT
+        .PULLUP(1'b 0)
+    ) 
+    iobuf_usbp 
+    (
+        .PACKAGE_PIN(pin_usbp),
+        .OUTPUT_ENABLE(usb_tx_en),
+        .D_OUT_0(usb_p_tx),
+        .D_IN_0(usb_p_in)
     );
 
-  assign pin_pu = 1'b1;
+    SB_IO #(
+        .PIN_TYPE(6'b 1010_01), // PIN_OUTPUT_TRISTATE - PIN_INPUT
+        .PULLUP(1'b 0)
+    ) 
+    iobuf_usbn 
+    (
+        .PACKAGE_PIN(pin_usbn),
+        .OUTPUT_ENABLE(usb_tx_en),
+        .D_OUT_0(usb_n_tx),
+        .D_IN_0(usb_n_in)
+    );
 
-  wire usb_p_rx_io;
-  wire usb_n_rx_io;
-  assign usb_p_rx = usb_tx_en ? 1'b1 : usb_p_rx_io;
-  assign usb_n_rx = usb_tx_en ? 1'b0 : usb_n_rx_io;
-
-  tristate usbn_buffer(
-    .pin(pin_usbn),
-    .enable(usb_tx_en),
-    .data_in(usb_n_rx_io),
-    .data_out(usb_n_tx)
-  );
-
-  tristate usbp_buffer(
-    .pin(pin_usbp),
-    .enable(usb_tx_en),
-    .data_in(usb_p_rx_io),
-    .data_out(usb_p_tx)
-  );
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-endmodule
-
-module tristate(
-  inout pin,
-  input enable,
-  input data_out,
-  output data_in
-);
-  SB_IO #(
-    .PIN_TYPE(6'b1010_01) // tristatable output
-  ) buffer(
-    .PACKAGE_PIN(pin),
-    .OUTPUT_ENABLE(enable),
-    .D_IN_0(data_in),
-    .D_OUT_0(data_out)
-  );
 endmodule

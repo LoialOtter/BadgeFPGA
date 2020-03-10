@@ -62,21 +62,21 @@ def main():
         tinyprog      = 'tinyprog'
 
     sources = glob('*.v')
-    sources += glob('./common/*.v')
+    sources += glob('./usb/*.v')
 
     for command in commands:
         # run command
         if command == 'build':
-            synth_cmd = 'synth_ice40 -top main -json ' + name + '.json'
+            synth_cmd = 'synth_ice40 -top top -json ' + name + '.json'
             if call([yosys, '-q', '-p', synth_cmd] + sources) != 0:
                 return
-            if call([nextpnr_ice40, '--lp8k', '--package', 'cm81', '--pcf', name+'.pcf', '--json', name+'.json', '--asc', name+'.asc']) != 0:
+            if call([nextpnr_ice40, '--lp8k', '--package', 'cm81', '--opt-timing', '--pcf', name+'.pcf', '--json', name+'.json', '--asc', name+'.asc']) != 0:
                 return
             if call([icepack, name+'.asc', name+'.bin']) != 0:
                 return
             
         elif command == 'upload':
-            if call([tinyprog, '-p', name+'.bin']) != 0:
+            if call([tinyprog, '-p', name+'.bin', '-b']) != 0:
                 return
         
         elif command == 'clean':

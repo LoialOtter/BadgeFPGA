@@ -16,6 +16,7 @@ module protocol #(
     // Wishbone interface
     input wire                      rst_i,
     input wire                      clk_i,
+    input wire                      clk_48mhz,
 
     output wire [ADDRESS_WIDTH-1:0] adr_o,
     input wire [DATA_WIDTH-1:0]     dat_i,
@@ -29,16 +30,13 @@ module protocol #(
     output wire [2:0]               cti_o,
 
     // Aux interfaces
-    input wire                      aux_active,
-    output reg                      aux_complete,
-
     input wire [7:0]                rx_byte,
     input wire                      rx_byte_valid,
-    output reg                      rx_ready,
+    output wire                     rx_ready,
     
     output reg [7:0]                tx_byte,
     output reg                      tx_byte_valid,
-    input wire                      tx_ready
+    input                           tx_ready
     );
 
 
@@ -101,8 +99,8 @@ module protocol #(
 
     
 
-    reg [2:0]          local_state;
-    reg [2:0]          next_local_state;
+    reg [3:0]          local_state;
+    reg [3:0]          next_local_state;
     
     localparam STATE_RX_MARK         = 11'b00000000001;
     localparam STATE_RX_COMMAND      = 11'b00000000010;
@@ -135,7 +133,7 @@ module protocol #(
     reg [DATA_WIDTH-1:0]         next_data_out [0:MAX_PAYLOAD-1];
     reg [INTERFACE_LENGTH_N-1:0] next_payload_length;
     
-    always @(posedge clk_i or posedge rst_i) begin
+    always @(posedge clk_48mhz or posedge rst_i) begin
         if (rst_i) begin
             state            <= STATE_RX_MARK;
             ascii_mode       <= 1'b0;
@@ -152,12 +150,12 @@ module protocol #(
             error_code       <= next_error_code;
             transfer_address <= next_transfer_address;
             local_state      <= next_local_state;
-            payload_length <= next_payload_length;
+            payload_length   <= next_payload_length;
         end
     end
     generate
         for (i = 0; i < MAX_PAYLOAD; i = i+1) begin
-            always @(posedge clk_i or posedge rst_i) begin
+            always @(posedge clk_48mhz or posedge rst_i) begin
                 if (rst_i) data_out[i] <= 8'd0;
                 else       data_out[i] <= next_data_out[i];
             end
@@ -169,12 +167,16 @@ module protocol #(
     assign rx_digit = (rx_byte <  "0" ? 4'd0 :
                        rx_byte <= "9" ? rx_byte - "0" :
                        rx_byte <  "A" ? 4'd0 :
-                       rx_byte <= "F" ? rx_byte - "A" + 4'hA : 4'd0);
+                       rx_byte <= "F" ? rx_byte - "A" + 4'hA :
+                       rx_byte <  "a" ? 4'd0 :
+                       rx_byte <= "f" ? rx_byte - "a" + 4'hA : 4'd0);
     wire       rx_digit_error;
     assign rx_digit_error = (rx_byte <  "0" ? 1'b1 :
                              rx_byte <= "9" ? 1'b0 :
                              rx_byte <  "A" ? 1'b1 :
-                             rx_byte <= "F" ? 1'b0 : 1'b1);
+                             rx_byte <= "F" ? 1'b0 :
+                             rx_byte <  "a" ? 1'b1 :
+                             rx_byte <= "f" ? 1'b0 : 1'b1);
     
 
     reg [3:0]  tx_digit;
@@ -195,8 +197,6 @@ module protocol #(
         tx_byte               = 8'd0;
         tx_byte_valid         = 1'b0;
         tx_digit              = 4'd0;
-        rx_ready              = 1'b0;
-        aux_complete          = ~aux_active;
 
         next_data_out[0]      = data_out[0];
         next_data_out[1]      = data_out[1];
@@ -204,20 +204,20 @@ module protocol #(
         next_data_out[3]      = data_out[3];
 
         next_payload_length   = payload_length;
-        
+        rx_ready              = 0;
         
         case (state)
         STATE_RX_MARK: begin
-            if (aux_active) next_state = STATE_RX_COMMAND;
-            //if (rx_byte_valid && (rx_byte == "?")) begin
-            //      next_state = STATE_RX_COMMAND;
-            //end
+            rx_ready = 1;
+            
+            if (rx_byte_valid && (rx_byte == "?")) begin
+                  next_state = STATE_RX_COMMAND;
+            end
         end
 
         STATE_RX_COMMAND: begin
-            rx_ready         = 1;
             next_local_state = 0;
-            aux_complete     = 1;
+            rx_ready         = 1;
             
             if (rx_byte_valid) begin
                 next_local_state = 0;
@@ -241,7 +241,8 @@ module protocol #(
         end
         
         STATE_RX_ASCII_ADDR : begin
-            rx_ready = 1;
+            rx_ready  = 1;
+            
             if (rx_byte_valid) begin
                 if (rx_digit_error) begin
                     next_error_code  = ERROR_NON_NUMBER;
@@ -257,11 +258,11 @@ module protocol #(
                     else next_state = STATE_READ_OPERATION;
                 end
             end
-            if (!aux_active) next_state = STATE_RX_MARK;
         end
         
         STATE_RX_ASCII_DATA : begin
-            rx_ready = 1;
+            rx_ready  = 1;
+            
             if (rx_byte_valid) begin
                 if (rx_digit_error) begin
                     next_error_code  = ERROR_NON_NUMBER;
@@ -271,7 +272,6 @@ module protocol #(
                 else if (local_state == 0) begin next_data_out[0][7:4] = rx_digit;  next_local_state = 1; end
                 else                       begin next_data_out[0][3:0] = rx_digit;  next_local_state = 0; next_state = STATE_WRITE_OPERATION; end
             end
-            if (!aux_active) next_state = STATE_RX_MARK;
         end
         
         STATE_READ_OPERATION  : begin
@@ -280,6 +280,15 @@ module protocol #(
                 next_local_state = 1;
             end
             else if (local_state == 1) begin
+                if (!read_busy) begin
+                    start_read = 1;
+                end
+                else begin
+                    next_local_state = 2;
+                    start_read       = 0;
+                end
+            end
+            else if (local_state == 2) begin
                 if (!read_busy) begin
                     next_local_state = 0;
                     
@@ -311,6 +320,10 @@ module protocol #(
                 next_local_state = 1;
             end
             else if (local_state == 1) begin
+                start_write = 1;
+                if (write_busy) next_local_state = 2;
+            end
+            else if (local_state == 2) begin
                 if (!write_busy) begin
                     if (cyc_i && timeout) begin
                         next_local_state = 0;
@@ -328,21 +341,23 @@ module protocol #(
                         else            next_state = STATE_TX_BINARY_ERROR;
                     end
                     else begin
-                        next_local_state = 2;
+                        next_local_state = 3;
                     end
                 end
             end
-            else if (local_state == 2) begin
-                tx_byte = "O";
+            else if (local_state == 3) begin
+                tx_byte       = "O";
+                tx_byte_valid = 1'b1;
+
                 if (tx_ready) begin
-                    tx_byte_valid    = 1'b1;
-                    next_local_state = 3;
+                    next_local_state = 4;
                 end
             end
-            else if (local_state == 3) begin
-                tx_byte = "K";
+            else if (local_state == 4) begin
+                tx_byte       = "K";
+                tx_byte_valid = 1'b1;
+
                 if (tx_ready) begin
-                    tx_byte_valid    = 1'b1;
                     next_local_state = 0;
                     next_state       = STATE_END_NEWLINE;
                 end
@@ -353,55 +368,79 @@ module protocol #(
         STATE_TX_ASCII_DATA : begin
             if (local_state == 0) tx_digit = data_in[0][7:4];
             else                     tx_digit = data_in[0][3:0];
-            
+
+            tx_byte_valid = 1'b1;
             if (tx_ready) begin
-                if      (local_state == 0) begin tx_byte_valid = 1'b1;  next_local_state = 1; end
-                else                       begin tx_byte_valid = 1'b1;  next_local_state = 0;
+                if      (local_state == 0) begin next_local_state = 1; end
+                else                       begin next_local_state = 0;
                     next_state = STATE_END_NEWLINE;
                 end
             end
+            
             tx_byte = tx_ascii;
-            if (!aux_active) next_state = STATE_RX_MARK;
         end
 
         STATE_TX_BINARY_DATA : begin
             // TODO: add binary mode
             next_local_state = 0;
             next_state       = STATE_END_NEWLINE;
-            if (!aux_active) next_state = STATE_RX_MARK;
         end
         
         STATE_TX_ASCII_ERROR : begin
             // select which letter is current
             if (error_code == ERROR_COMMAND_FAILURE) begin
                 if      (local_state == 0) tx_byte = "c"; // cmd err
-                else if (local_state == 1) tx_byte = "!";
+                else if (local_state == 1) tx_byte = "m";
+                else if (local_state == 2) tx_byte = "d";
+                else if (local_state == 3) tx_byte = "e";
+                else if (local_state == 4) tx_byte = "r";
+                else if (local_state == 5) tx_byte = "r";
+                else if (local_state == 6) tx_byte = "!";
                 else tx_byte = 8'd0;
             end
 
             else if (error_code == ERROR_NON_NUMBER) begin
-                if      (local_state == 0) tx_byte = "n"; // hex only
-                else if (local_state == 1) tx_byte = "!";
+                if      (local_state == 0) tx_byte = "h"; // hex only
+                else if (local_state == 1) tx_byte = "e";
+                else if (local_state == 2) tx_byte = "x";
+                else if (local_state == 3) tx_byte = " ";
+                else if (local_state == 4) tx_byte = "o";
+                else if (local_state == 5) tx_byte = "n";
+                else if (local_state == 6) tx_byte = "l";
+                else if (local_state == 7) tx_byte = "y";
+                else if (local_state == 8) tx_byte = "!";
                 else tx_byte = 8'd0;
             end
 
             else if (error_code == ERROR_NO_RESPONSE) begin
-                if      (local_state == 0) tx_byte = "t"; // no resp
-                else if (local_state == 1) tx_byte = "!";
+                if      (local_state == 0) tx_byte = "n"; // no resp
+                else if (local_state == 1) tx_byte = "o";
+                else if (local_state == 2) tx_byte = " ";
+                else if (local_state == 3) tx_byte = "r";
+                else if (local_state == 4) tx_byte = "e";
+                else if (local_state == 5) tx_byte = "s";
+                else if (local_state == 6) tx_byte = "p";
+                else if (local_state == 7) tx_byte = "!";
                 else tx_byte = 8'd0;
             end
 
             else if (error_code == ERROR_NON_NUMBER) begin
                 if      (local_state == 0) tx_byte = "a"; // arb fail
-                else if (local_state == 1) tx_byte = "!";
+                else if (local_state == 1) tx_byte = "r";
+                else if (local_state == 2) tx_byte = "b";
+                else if (local_state == 3) tx_byte = "f";
+                else if (local_state == 4) tx_byte = "a";
+                else if (local_state == 5) tx_byte = "i";
+                else if (local_state == 6) tx_byte = "k";
+                else if (local_state == 7) tx_byte = "!";
                 else tx_byte = 8'd0;
             end
             // default to skip
             else tx_byte = 8'd0;
 
             if (tx_byte != 8'd0) begin
+                tx_byte_valid    = 1'b1;
                 if (tx_ready) begin
-                    tx_byte_valid    = 1'b1;
                     next_local_state = local_state + 1;
                 end
             end
@@ -409,26 +448,22 @@ module protocol #(
                 next_local_state = 0;
                 next_state       = STATE_END_NEWLINE;
             end
-
-            if (!aux_active) next_state = STATE_RX_MARK;
         end
         
         STATE_TX_BINARY_ERROR : begin
             // TODO: add binary mode
             next_local_state = 0;
             next_state       = STATE_END_NEWLINE;
-            if (!aux_active) next_state = STATE_RX_MARK;
         end
 
         STATE_END_NEWLINE : begin
-            tx_byte = "\n";
+            tx_byte          = "\n";
+            tx_byte_valid    = 1'b1;
             
             if (tx_ready) begin
                 next_local_state = 0;
-                tx_byte_valid    = 1'b1;
                 next_state       = STATE_RX_MARK;
             end
-            if (!aux_active) next_state = STATE_RX_MARK;
         end
         
         endcase
