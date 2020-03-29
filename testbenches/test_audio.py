@@ -1,6 +1,7 @@
 import serial
 import time
 import sys
+import math
 
 ser = serial.Serial("COM166", 9600)
 
@@ -67,9 +68,10 @@ SID_OFFSET_VOICE2_PW      = (0x0109) # 16/12 bit
 SID_OFFSET_VOICE2_CONTROL = (0x010B)
 SID_OFFSET_VOICE2_ATTDEC  = (0x010C)
 SID_OFFSET_VOICE2_SSTREL  = (0x010D)
-SID_OFFSET_FILT           = (0x0115) # 16/12 bit
+SID_OFFSET_FILT           = (0x0115) # 16 bit
 SID_OFFSET_RESFILT        = (0x0117)
 SID_OFFSET_MODEVOL        = (0x0118)
+SID_OFFSET_FILTQ          = (0x0119) # 16 bit
 
 VOICE_NOISE = 0x80
 VOICE_PULSE = 0x40
@@ -85,14 +87,91 @@ write_note(ser, A3)
 write_volume(ser, 15)
 
 write16(ser, SID_OFFSET_VOICE1_ATTDEC, 0xFF)
-write16(ser, SID_OFFSET_VOICE1_SSTREL, 0xF9)
-write16(ser, SID_OFFSET_VOICE1_CONTROL, VOICE_TRI | VOICE_GATE)
-for i in range(128):
-    write16(ser, SID_OFFSET_VOICE1_FREQ, 0x6FFF - (i << 7))
-    time.sleep(0.01)
-#time.sleep(2)
-write16(ser, SID_OFFSET_VOICE1_CONTROL, VOICE_NOISE | 0)
-time.sleep(5)
+write16(ser, SID_OFFSET_VOICE1_SSTREL, 0xF3)
+
+freq = 1600
+fsample = 1000000
+
+f = 2 * math.sin((math.pi * freq) / (fsample))
+print(f)
+print(int(f * (1<<16)))
+
+write16(ser, SID_OFFSET_FILT, int(f * (1<<16)))
+
+write16(ser, SID_OFFSET_FILTQ, int(1.0 * (1<<12)))
+
+write16(ser, SID_OFFSET_MODEVOL, 0x07)
+write16(ser, SID_OFFSET_VOICE1_CONTROL, VOICE_PULSE | VOICE_GATE)
+for i in range(64):
+    freq = (i / 64) * 2000
+    f = 2 * math.sin((math.pi * freq) / (fsample))
+    write16(ser, SID_OFFSET_FILT, int(f * (1<<16)))
+write16(ser, SID_OFFSET_VOICE1_CONTROL, VOICE_PULSE | 0)
+time.sleep(1)
+
+write16(ser, SID_OFFSET_MODEVOL, 0x07)
+write16(ser, SID_OFFSET_VOICE1_CONTROL, VOICE_PULSE | VOICE_GATE)
+for i in range(64):
+    freq = (i / 64) * 2000
+    f = 2 * math.sin((math.pi * freq) / (fsample))
+    write16(ser, SID_OFFSET_FILT, int(f * (1<<16)))
+write16(ser, SID_OFFSET_VOICE1_CONTROL, VOICE_PULSE | 0)
+time.sleep(1)
+
+write16(ser, SID_OFFSET_MODEVOL, 0x07)
+write16(ser, SID_OFFSET_VOICE1_CONTROL, VOICE_PULSE | VOICE_GATE)
+for i in range(64):
+    freq = (i / 64) * 2000
+    f = 2 * math.sin((math.pi * freq) / (fsample))
+    write16(ser, SID_OFFSET_FILT, int(f * (1<<16)))
+write16(ser, SID_OFFSET_VOICE1_CONTROL, VOICE_PULSE | 0)
+time.sleep(1)
+
+write16(ser, SID_OFFSET_MODEVOL, 0x07)
+write16(ser, SID_OFFSET_VOICE1_CONTROL, VOICE_PULSE | VOICE_GATE)
+for i in range(64):
+    freq = (i / 64) * 2000
+    f = 2 * math.sin((math.pi * freq) / (fsample))
+    write16(ser, SID_OFFSET_FILT, int(f * (1<<16)))
+write16(ser, SID_OFFSET_VOICE1_CONTROL, VOICE_PULSE | 0)
+time.sleep(1)
+write16(ser, SID_OFFSET_MODEVOL, 0x00)
+
+
+##write16(ser, SID_OFFSET_VOICE1_CONTROL, VOICE_TRI | VOICE_GATE)
+##for i in range(64):
+##    write16(ser, SID_OFFSET_VOICE1_FREQ, 0x6FFF - (i << 8))
+###time.sleep(2)
+##write16(ser, SID_OFFSET_VOICE1_CONTROL, VOICE_NOISE | 0)
+##time.sleep(1)
+##
+##write16(ser, SID_OFFSET_MODEVOL, 0x1F)
+##
+##write16(ser, SID_OFFSET_VOICE1_CONTROL, VOICE_TRI | VOICE_GATE)
+##for i in range(64):
+##    write16(ser, SID_OFFSET_VOICE1_FREQ, 0x6FFF - (i << 8))
+###time.sleep(2)
+##write16(ser, SID_OFFSET_VOICE1_CONTROL, VOICE_NOISE | 0)
+##time.sleep(1)
+##
+##write16(ser, SID_OFFSET_MODEVOL, 0x4F)
+##
+##write16(ser, SID_OFFSET_VOICE1_CONTROL, VOICE_TRI | VOICE_GATE)
+##for i in range(64):
+##    write16(ser, SID_OFFSET_VOICE1_FREQ, 0x6FFF - (i << 8))
+###time.sleep(2)
+##write16(ser, SID_OFFSET_VOICE1_CONTROL, VOICE_NOISE | 0)
+##time.sleep(1)
+##
+##write16(ser, SID_OFFSET_MODEVOL, 0x3F)
+##
+##write16(ser, SID_OFFSET_VOICE1_CONTROL, VOICE_TRI | VOICE_GATE)
+##for i in range(64):
+##    write16(ser, SID_OFFSET_VOICE1_FREQ, 0x6FFF - (i << 8))
+###time.sleep(2)
+##write16(ser, SID_OFFSET_VOICE1_CONTROL, VOICE_NOISE | 0)
+##time.sleep(1)
+##
 
 #write_volume(ser, 0)
 #write_note(ser, A5); time.sleep(0.5)
@@ -136,5 +215,3 @@ time.sleep(5)
 #write_note(ser, F5); time.sleep(0.5)
 #write_note(ser, G5); time.sleep(0.5)
 
-write_volume(ser, 0)
-read(ser)

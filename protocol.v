@@ -32,11 +32,11 @@ module protocol #(
     // Aux interfaces
     input wire [7:0]                rx_byte,
     input wire                      rx_byte_valid,
-    output wire                     rx_ready,
+    output reg                      rx_ready,
     
     output reg [7:0]                tx_byte,
     output reg                      tx_byte_valid,
-    input                           tx_ready
+    input wire                      tx_ready
     );
 
 

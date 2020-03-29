@@ -14,7 +14,8 @@ module top (
 
     output pin_1,
     output pin_2,
-             
+
+    output pin_13,
     output pin_14,
     output pin_15,
     output pin_16,
@@ -23,9 +24,25 @@ module top (
     output pin_19,
     output pin_20,
     output pin_21,
-    output pin_22
+    output pin_22,
+    output pin_23,
+    output pin_24
     );
 
+    wire [11:0] debug;
+    assign pin_14 = debug[ 0];
+    assign pin_15 = debug[ 1];
+    assign pin_16 = debug[ 2];
+    assign pin_17 = debug[ 3];
+    assign pin_18 = debug[ 4];
+    assign pin_19 = debug[ 5];
+    assign pin_20 = debug[ 6];
+    assign pin_21 = debug[ 7];
+    assign pin_22 = debug[ 8];
+    assign pin_23 = debug[ 9];
+    assign pin_24 = debug[10];
+    assign pin_13 = debug[11];
+    
     ////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////
     ////////
@@ -221,7 +238,9 @@ module top (
         .cti_i ( cti ),
 
         .audio_p ( pin_1 ),
-        .audio_n ( pin_2 )
+        .audio_n ( pin_2 ),
+
+        .debug ( debug )
     );
 
     reg [4:0]                leds;
@@ -319,12 +338,6 @@ module top (
      
         .debug(  )
     );
-    assign pin_14 = uart_in_data[0];
-    assign pin_15 = uart_in_valid;
-    assign pin_16 = uart_in_ready;
-    assign pin_17 = uart_out_data[0];
-    assign pin_18 = uart_out_valid;
-    assign pin_19 = uart_out_ready;
     
     wire usb_p_tx;
     wire usb_n_tx;

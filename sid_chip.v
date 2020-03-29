@@ -22,9 +22,18 @@ module sid_chip #(
 
     // audio out
     output wire                    audio_p,
-    output wire                    audio_n
+    output wire                    audio_n,
+
+    output wire [11:0]             debug
     );
 
+    localparam FILTER_BDEPTH      = 16;
+    localparam FILTER_COEF_BDEPTH = 16;
+
+    reg [FILTER_COEF_BDEPTH-1:0] f_coefficient;
+    reg [FILTER_COEF_BDEPTH-1:0] q_coefficient;
+
+    
     reg        valid_address;
     
     reg [15:0] voice1_freq    ;
@@ -77,25 +86,25 @@ module sid_chip #(
     //reg [3:0]  voice3_decay   ;
     //reg [3:0]  voice3_sustain ;
     //reg [3:0]  voice3_release ;
-    //
-    //reg [10:0] filter_center  ;
-    //reg [4:0]  filter_extra   ;
-    //reg [3:0]  filter_res     ;
-    //reg        filter_ex      ;
-    //reg        filter_v1      ;
-    //reg        filter_v2      ;
-    //reg        filter_v3      ;
-    //reg        filter_3_off   ;
-    //reg        filter_lp      ;
-    //reg        filter_hp      ;
-    //reg        filter_bp      ;
+    
+    reg [10:0] filter_center  ;
+    reg [4:0]  filter_extra   ;
+    reg [3:0]  filter_res     ;
+    reg        filter_ex      ;
+    reg        filter_v1      ;
+    reg        filter_v2      ;
+    reg        filter_v3      ;
+    reg        filter_3_off   ;
+    reg        filter_lp      ;
+    reg        filter_hp      ;
+    reg        filter_bp      ;
     
     reg [3:0]  volume         ;
 
     wire       address_in_range;
-    wire [4:0] local_address;
+    wire [5:0] local_address;
     assign address_in_range = (adr_i & 16'hFFE0) == BASE_ADDRESS;
-    assign local_address = address_in_range ? adr_i[4:0] : 5'h1F;
+    assign local_address = address_in_range ? adr_i[5:0] : 6'h3F;
 
     wire       clk;
     wire       rst;
@@ -159,20 +168,23 @@ module sid_chip #(
             //voice3_decay   <= 0;
             //voice3_sustain <= 0;
             //voice3_release <= 0;
-            //
-            //filter_center  <= 0;
-            //filter_extra   <= 0;
-            //filter_res     <= 0;
-            //filter_ex      <= 0;
-            //filter_v1      <= 0;
-            //filter_v2      <= 0;
-            //filter_v3      <= 0;
-            //filter_3_off   <= 0;
-            //filter_lp      <= 0;
-            //filter_hp      <= 0;
-            //filter_bp      <= 0;
+            
+            filter_center  <= 0;
+            filter_extra   <= 0;
+            filter_res     <= 0;
+            filter_ex      <= 0;
+            filter_v1      <= 0;
+            filter_v2      <= 0;
+            filter_v3      <= 0;
+            filter_3_off   <= 0;
+            filter_lp      <= 0;
+            filter_hp      <= 0;
+            filter_bp      <= 0;
             
             volume         <= 15;
+
+            f_coefficient  <= 800;
+            q_coefficient  <= 4096;
         end
         else begin
             if (cyc_i & we_i) begin
@@ -199,11 +211,13 @@ module sid_chip #(
                 //else if (local_address == `SID_OFFSET_VOICE3_CONTROL) { voice3_noise, voice3_pulse, voice3_saw, voice3_tri, voice3_test, voice3_ringmod, voice3_sync, voice3_gate } <= dat_i;
                 //else if (local_address == `SID_OFFSET_VOICE3_ATTDEC ) { voice3_attack, voice3_decay }  <= dat_i;
                 //else if (local_address == `SID_OFFSET_VOICE3_SSTREL ) { voice3_sustain, voice3_release } <= dat_i;
-                //
-                //else if (local_address == `SID_OFFSET_FILT_L        ) { filter_extra, filter_center[2:0] } <= dat_i;
-                //else if (local_address == `SID_OFFSET_FILT_H        ) { filter_center[10:3] }  <= dat_i;
-                //else if (local_address == `SID_OFFSET_RESFILT       ) { filter_res, filter_ex, filter_v3, filter_v2, filter_v1 } <= dat_i;
-                else if (local_address == `SID_OFFSET_MODEVOL       ) { volume } <= dat_i[3:0]; // { filter_3_off, filter_hp, filter_bp, filter_lp, volume } <= dat_i;
+                
+                else if (local_address == `SID_OFFSET_FILT_L        ) { f_coefficient[7:0] } <= dat_i; // { filter_extra, filter_center[2:0] } <= dat_i;
+                else if (local_address == `SID_OFFSET_FILT_H        ) { f_coefficient[15:8] }  <= dat_i; // { filter_center[10:3] }  <= dat_i;
+                else if (local_address == `SID_OFFSET_RESFILT       ) { filter_res, filter_ex, filter_v3, filter_v2, filter_v1 } <= dat_i;
+                else if (local_address == `SID_OFFSET_MODEVOL       ) { filter_3_off, filter_hp, filter_bp, filter_lp, volume } <= dat_i;
+                else if (local_address == `SID_OFFSET_FILT_Q_L      ) { q_coefficient[7:0] } <= dat_i;
+                else if (local_address == `SID_OFFSET_FILT_Q_H      ) { q_coefficient[15:8] } <= dat_i;
             end
         end
     end
@@ -233,11 +247,14 @@ module sid_chip #(
         //else if (local_address == `SID_OFFSET_VOICE3_CONTROL) begin  valid_address = 1;  dat_o = { voice3_noise, voice3_pulse, voice3_saw, voice3_tri, voice3_test, voice3_ringmod, voice3_sync, voice3_gate }; end
         //else if (local_address == `SID_OFFSET_VOICE3_ATTDEC ) begin  valid_address = 1;  dat_o = { voice3_attack, voice3_decay } ; end
         //else if (local_address == `SID_OFFSET_VOICE3_SSTREL ) begin  valid_address = 1;  dat_o = { voice3_sustain, voice3_release }; end
-        //
-        //else if (local_address == `SID_OFFSET_FILT_L        ) begin  valid_address = 1;  dat_o = { filter_extra, filter_center[2:0] }; end
-        //else if (local_address == `SID_OFFSET_FILT_H        ) begin  valid_address = 1;  dat_o = { filter_center[10:3] } ; end
-        //else if (local_address == `SID_OFFSET_RESFILT       ) begin  valid_address = 1;  dat_o = { filter_res, filter_ex, filter_v3, filter_v2, filter_v1 }; end
-        else if (local_address == `SID_OFFSET_MODEVOL       ) begin  valid_address = 1;  dat_o = { 4'd0, volume }; end  //{ filter_3_off, filter_hp, filter_bp, filter_lp, volume }; end
+        
+        else if (local_address == `SID_OFFSET_FILT_L        ) begin  valid_address = 1;  dat_o = { f_coefficient[7:0] }; end //{ filter_extra, filter_center[2:0] }; end
+        else if (local_address == `SID_OFFSET_FILT_H        ) begin  valid_address = 1;  dat_o = { f_coefficient[15:8] } ; end //{ filter_center[10:3] } ; end
+        else if (local_address == `SID_OFFSET_RESFILT       ) begin  valid_address = 1;  dat_o = { filter_res, filter_ex, filter_v3, filter_v2, filter_v1 }; end
+        else if (local_address == `SID_OFFSET_MODEVOL       ) begin  valid_address = 1;  dat_o = { filter_3_off, filter_hp, filter_bp, filter_lp, volume }; end
+        else if (local_address == `SID_OFFSET_FILT_Q_L      ) begin  valid_address = 1;  dat_o = { q_coefficient[7:0] }; end
+        else if (local_address == `SID_OFFSET_FILT_Q_H      ) begin  valid_address = 1;  dat_o = { q_coefficient[15:8] }; end
+        
         else begin 
             valid_address = 0;
             dat_o = 0;
@@ -246,18 +263,6 @@ module sid_chip #(
 
 
 
-    //reg [7:0] lut1_address;
-    //reg [15:0] lut1_out;
-    //
-    //reg [15:0]  lut1_mem [255:0];
-    //
-    //initial begin
-    //    $readmemh("./lut1_rom.txt", lut1_mem);
-    //end
-    //
-    //always @(posedge clk) begin
-    //    lut1_out <= lut1_mem[lut1_address];
-    //end
 
     reg local_clock = 0;
     reg [3:0] local_clock_div = 0;
@@ -328,7 +333,7 @@ module sid_chip #(
 
     localparam ENV_SIZE      = 6;
     
-    reg env_clock            = 0;
+    reg env_clock           = 0;
     reg [3:0] env_clock_div = 0;
     always @(posedge local_clock) begin
         if (env_clock_div) env_clock_div <= env_clock_div-1;
@@ -454,10 +459,8 @@ module sid_chip #(
 
 
 
-
-    
     reg signed [12:0] audio_amplified = 0;
-    wire signed [8:0] audio_scaled = audio_amplified[12:4];
+    wire signed [7:0] audio_scaled = audio_amplified[12:5];
     always @(posedge local_clock or posedge rst) begin
         if (rst) begin
             audio_amplified <= 0;
@@ -466,9 +469,38 @@ module sid_chip #(
             audio_amplified <= voice1_scaled * $signed({1'b0, volume});
         end
     end
+
+    wire signed [7:0] audio_filtered;
+    wire en_pass = ~|{filter_lp, filter_hp, filter_bp};
     
-    wire              audio_sign = audio_scaled < 0;
-    wire [7:0]        audio_abs = (audio_sign ? -audio_scaled : audio_scaled);
+    sid_chip_filter #(
+        .AUDIO_BDEPTH      (12),
+        .AUDIO_OUT_BDEPTH  (8),
+        .FILTER_BDEPTH     (16),
+        .FILTER_COEF_BDEPTH(16),
+        .INPUT_GAIN_BITS   (6),
+        .OUTPUT_GAIN_BITS  (6)
+    ) filter_inst (
+        .clk          (env_clock), // 1mhz / 8
+
+        .f_coefficient(f_coefficient),
+        .q_coefficient(q_coefficient),
+        .en_pass      (en_pass),
+        .en_lowpass   (filter_lp),
+        .en_highpass  (filter_hp),
+        .en_bandpass  (filter_bp),
+
+        .audio_in     (audio_amplified[12:1]),
+        .audio_out    (audio_filtered),
+
+        .debug        (debug)
+    );    
+    
+    
+
+    
+    wire       audio_sign = audio_filtered < 0;
+    wire [7:0] audio_abs = (audio_sign ? -audio_filtered : audio_filtered);
 
     
     reg [15:0] error_accumulator = 0;
