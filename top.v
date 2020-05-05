@@ -1,47 +1,85 @@
+`include "globals.v"
+
 module top (
-    input  pin_clk,
+    input wire  pin_clk,
 
-    inout  pin_usbp,
-    inout  pin_usbn,
-    output pin_pu,
+    inout wire  pin_usbp,
+    inout wire  pin_usbn,
+    output wire pin_pu,
 
-    output pin_led,
+    output wire pin_led,
 
-    //input  pin_29_miso,
-    //output pin_30_cs,
-    //output pin_31_mosi,
-    //output pin_32_sck,
+    //input  wire pin_29_miso,
+    //output wire pin_30_cs,
+    //output wire pin_31_mosi,
+    //output wire pin_32_sck,
 
-    output pin_1,
-    output pin_2,
+    output wire pin_1,
+    output wire pin_2,
 
-    output pin_13,
-    output pin_14,
-    output pin_15,
-    output pin_16,
-    output pin_17,
-    output pin_18,
-    output pin_19,
-    output pin_20,
-    output pin_21,
-    output pin_22,
-    output pin_23,
-    output pin_24
+    output wire pin_3,
+    output wire pin_4,
+    output wire pin_5,
+    output wire pin_6,
+    output wire pin_7,
+    output wire pin_8,
+    output wire pin_9,
+    output wire pin_10,
+    output wire pin_11,
+    output wire pin_12,
+    output wire pin_13,
+    output wire pin_14,
+    output wire pin_15,
+    output wire pin_16,
+    output wire pin_17,
+    output wire pin_18,
+    output wire pin_19,
+    output wire pin_20,
+    output wire pin_21,
+    output wire pin_22,
+    output wire pin_23,
+    output wire pin_24,
+    output wire pin_25
     );
 
-    wire [11:0] debug;
-    assign pin_14 = debug[ 0];
-    assign pin_15 = debug[ 1];
-    assign pin_16 = debug[ 2];
-    assign pin_17 = debug[ 3];
-    assign pin_18 = debug[ 4];
-    assign pin_19 = debug[ 5];
+    localparam N_COLS = 32;
+    localparam N_ROWS = 7;
+    
+    wire [N_COLS-1:0] led_out;
+    wire              led_shift_1st_line;
+    wire              led_shift_clock;
+
+    //reg [7:0]         test_counter;
+    //always @(posedge pin_clk) begin
+    //    test_counter <= test_counter + 1;
+    //end
+
+    
+    wire [11:0]       debug;
+    assign pin_14 = led_out[0]; //debug[ 0];
+    assign pin_15 = led_out[1]; //debug[ 1];
+    assign pin_16 = led_out[2]; //debug[ 2];
+    assign pin_17 = led_out[3]; //debug[ 3];
+    assign pin_18 = led_shift_1st_line; //debug[ 4];
+    assign pin_19 = led_shift_clock; //debug[ 5];
     assign pin_20 = debug[ 6];
     assign pin_21 = debug[ 7];
     assign pin_22 = debug[ 8];
     assign pin_23 = debug[ 9];
     assign pin_24 = debug[10];
-    assign pin_13 = debug[11];
+
+    assign pin_3 = led_shift_1st_line;
+    assign pin_4 = led_shift_clock;
+    assign pin_5 = led_out[0];
+    assign pin_6 = led_out[1];
+    assign pin_7 = led_out[2];
+    assign pin_8 = led_out[3];
+    assign pin_9 = led_out[4];
+    assign pin_10 = led_out[5];
+    assign pin_11 = led_out[6];
+    assign pin_12 = led_out[7];
+    assign pin_13 = led_out[8];
+    assign pin_25 = led_out[9];
     
     ////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////
@@ -157,26 +195,26 @@ module top (
     wire        synth_stb;
     wire [2:0]  synth_cti;
     
-    //wire        test_cycle;
-    //wire        test_cycle_in;
-    //wire [15:0] test_adr;
-    //wire [7:0]  test_data;
-    //wire        test_we;
-    //wire        test_sel;
-    //wire        test_stb;
-    //wire [2:0]  test_cti;
+    wire        led_drv_cycle;
+    wire        led_drv_cycle_in;
+    wire [15:0] led_drv_adr;
+    wire [7:0]  led_drv_data;
+    wire        led_drv_we;
+    wire        led_drv_sel;
+    wire        led_drv_stb;
+    wire [2:0]  led_drv_cti;
 
-    assign rs232_cycle_in = synth_cycle;// | test_cycle;
-    assign synth_cycle_in = rs232_cycle;// | test_cycle;
-    //assign test_cycle_in  = rs232_cycle | synth_cycle;
+    assign rs232_cycle_in = synth_cycle | led_drv_cycle;
+    assign synth_cycle_in = rs232_cycle | led_drv_cycle;
+    assign led_drv_cycle_in  = rs232_cycle | synth_cycle;
 
-    assign cycle = rs232_cycle | synth_cycle;// | test_cycle;
+    assign cycle = rs232_cycle | synth_cycle | led_drv_cycle;
     
     always @(*) begin
-        if      (rs232_cycle) begin  adr = rs232_adr;  data = rs232_data;  we = rs232_we;  sel = rs232_sel;  stb = rs232_stb;  cti = rs232_cti;  end
-        else if (synth_cycle) begin  adr = synth_adr;  data = synth_data;  we = synth_we;  sel = synth_sel;  stb = synth_stb;  cti = synth_cti;  end
-        //else if (test_cycle)  begin  adr =  test_adr;  data =  test_data;  we =  test_we;  sel =  test_sel;  stb =  test_stb;  cti =  test_cti;  end
-        else                  begin  adr =     16'd0;  data =       8'd0;  we =        0;  sel =         0;  stb =         0;  cti =      3'd0;  end
+        if      (rs232_cycle)    begin  adr = rs232_adr;     data = rs232_data;     we = rs232_we;     sel = rs232_sel;     stb = rs232_stb;     cti = rs232_cti;    end
+        else if (synth_cycle)    begin  adr = synth_adr;     data = synth_data;     we = synth_we;     sel = synth_sel;     stb = synth_stb;     cti = synth_cti;    end
+        else if (led_drv_cycle)  begin  adr = led_drv_adr;   data = led_drv_data;   we = led_drv_we;   sel = led_drv_sel;   stb = led_drv_stb;   cti = led_drv_cti;  end
+        else                     begin  adr =     16'd0;     data =       8'd0;     we =        0;     sel =         0;     stb =         0;     cti =      3'd0;    end
     end
 
     
@@ -197,13 +235,12 @@ module top (
     //assign test_stb   = 0;
     //assign test_cti   = 0;
     
-    
     wishbone_memory #(
         .ADDRESS_WIDTH (16),
         .DATA_WIDTH    (8),
         .DATA_BYTES    (1),
-        .BASE_ADDRESS  (16'h0200),
-        .MEMORY_SIZE   (1024)
+        .BASE_ADDRESS  (`FRAME_MEMORY_START),
+        .MEMORY_SIZE   (4096)
     ) memory_inst (
         .rst_i ( rst ),
         .clk_i ( clk ),
@@ -219,11 +256,14 @@ module top (
     );
     
 
+    //assign sid1_data = 0;
+    //assign sid1_ack = 0;
     sid_chip #(
         .ADDRESS_WIDTH (16),
         .DATA_WIDTH    (8),
         .DATA_BYTES    (1),
-        .BASE_ADDRESS  (16'h0100),
+        .BASE_ADDRESS  (`SID1_START),
+        .FILTER_BASE_ADDRESS (`FILTER_START)
     ) sid1_inst (
         .rst_i ( rst ),
         .clk_i ( clk ),
@@ -236,38 +276,89 @@ module top (
         .cyc_i ( cycle ),
         .ack_o ( sid1_ack ),
         .cti_i ( cti ),
-
+    
         .audio_p ( pin_1 ),
         .audio_n ( pin_2 ),
-
+    
         .debug ( debug )
     );
 
-    reg [4:0]                leds;
-    reg [4:0]                next_leds;
-    // simple LED module to check the wishbone interface
-    always @(posedge clk or posedge rst) begin
-        if (rst) begin
-            leds <= 5'b01010;
-        end
-        else begin
-            leds <= next_leds;
-        end
-    end
-    always @(*) begin
-        led_data  = 8'd0;
-        next_leds = leds;
-        led_ack   = 1'd0;
-        
-        if (cycle && adr == 16'd0) begin
-            led_data = { 3'd0, leds };
-            led_ack = 1'b1;
-            if (we) begin
-                next_leds = data[4:0];
-            end
-        end
-    end
+    //reg [4:0]                leds;
+    //reg [4:0]                next_leds;
+    //// simple LED module to check the wishbone interface
+    //always @(posedge clk or posedge rst) begin
+    //    if (rst) begin
+    //        leds <= 5'b01010;
+    //    end
+    //    else begin
+    //        leds <= next_leds;
+    //    end
+    //end
+    //always @(*) begin
+    //    led_data  = 8'd0;
+    //    next_leds = leds;
+    //    led_ack   = 1'd0;
+    //    
+    //    if (cycle && adr == 16'd0) begin
+    //        led_data = { 3'd0, leds };
+    //        led_ack = 1'b1;
+    //        if (we) begin
+    //            next_leds = data[4:0];
+    //        end
+    //    end
+    //end
+    
+    //assign led_drv_adr = 0;
+    //assign led_drv_data = 0;
+    //assign led_drv_we = 0;
+    //assign led_drv_sel = 0;
+    //assign led_drv_stb = 0;
+    //assign led_drv_cycle = 0;
+    //assign led_drv_cti = 0;
+    led_matrix #(
+        .N_COLS          ( N_COLS ),
+        .N_ROWS          ( N_ROWS ),
+        .ADDRESS_WIDTH   ( 16 ),
+        .DATA_WIDTH      ( 8 ),
+        .DATA_BYTES      ( 1 ),
+        .BASE_ADDRESS    ( `MATRIX_START ),
+        .MAX_WAIT        ( 8 ),
+        .TOTAL_LOAD_TIME ( 256 ),
+        .TOTAL_LINE_TIME ( 2048 )
+    ) led_matrix_inst (
+        // Wishbone interface
+        .rst_i ( rst ),
+        .clk_i ( clk ),
+    
+        .adr_i ( adr ),
+        .dat_i ( data ),
+        .dat_o ( led_data ),
+        .we_i  ( we ),
+        .sel_i ( sel ),
+        .stb_i ( stb ),
+        .cyc_i ( cycle ),
+        .ack_o ( led_ack ),
+        .cti_i ( cti ),
+    
+        // Wishbone master
+        .frame_adr_o ( led_drv_adr ),
+        .frame_dat_i ( data_in ),
+        .frame_dat_o ( led_drv_data ),
+        .frame_we_o  ( led_drv_we ),
+        .frame_sel_o ( led_drv_sel ),
+        .frame_stb_o ( led_drv_stb ),
+        .frame_cyc_i ( led_drv_cycle_in ),
+        .frame_cyc_o ( led_drv_cycle ),
+        .frame_ack_i ( ack ),
+        .frame_cti_o ( led_drv_cti ),
+    
+        // LED Drive Out
+        .shift_1st_line ( led_shift_1st_line ),
+        .shift_clock    ( led_shift_clock ),
+        .led_out        ( led_out )
+    );
 
+    
     //---------------------------------------------------------------
     // uart and protocol
     

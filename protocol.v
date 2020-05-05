@@ -6,12 +6,12 @@ module protocol #(
     parameter integer MAX_PAYLOAD   = 4,
     // non-user-editable
     parameter INTERFACE_WIDTH = (MAX_PAYLOAD * DATA_WIDTH),
-    parameter INTERFACE_LENGTH_N = ((MAX_PAYLOAD <=  2) ? 1 :
-                                    (MAX_PAYLOAD <=  4) ? 2 :
-                                    (MAX_PAYLOAD <=  8) ? 3 :
-                                    (MAX_PAYLOAD <= 16) ? 4 :
-                                    (MAX_PAYLOAD <= 32) ? 5 :
-                                    /*           <= 64 */ 6)
+    parameter INTERFACE_LENGTH_N = ((MAX_PAYLOAD <=  2) ? 2 :
+                                    (MAX_PAYLOAD <=  4) ? 3 :
+                                    (MAX_PAYLOAD <=  8) ? 4 :
+                                    (MAX_PAYLOAD <= 16) ? 5 :
+                                    (MAX_PAYLOAD <= 32) ? 6 :
+                                    /*           <= 64 */ 7)
 )  (
     // Wishbone interface
     input wire                      rst_i,

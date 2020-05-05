@@ -1,12 +1,17 @@
 `default_nettype none
 
-`define DEFAULT_FRAME_ADDRESS (16'h0200)
-
-
-
+`define FRAME_MEMORY_START (16'h1000)
+`define FRAME_MEMORY_END   (16'h2000)
+`define DEFAULT_FRAME_ADDRESS (`FRAME_MEMORY_START)
 
 `define SID1_START    (16'h0100)
 `define SID1_END      (16'h0120)
+
+`define FILTER_START (16'h0200)
+`define FILTER_END   (16'h02FF)
+
+`define MATRIX_START (16'h0400)
+`define MATRIX_END   (16'h040F)
 
 `define SID_OFFSET_VOICE1_FREQ_L  (6'h00)
 `define SID_OFFSET_VOICE1_FREQ_H  (6'h01)
@@ -40,11 +45,14 @@
 `define SID_OFFSET_FILT_Q_H       (6'h20)
 
 
-`define MATRIX_START (16'h0400)
-`define MATRIX_END   (16'h040F)
+`define FILTER_OFFSET_CONTROL     (8'h00)
+`define FILTER_OFFSET_GAINS_START (8'h02)
+`define FILTER_OFFSET_COEF_START  (8'h20)
 
-`define MATRIX_CONTROL    (4'h00)
-`define MATRIX_BRIGHTNESS (4'h01)
-`define MATRIX_ADDR_L     (4'h02)
-`define MATRIX_ADDR_H     (4'h03)
+
+`define MATRIX_CONTROL    (4'h0)
+`define MATRIX_BRIGHTNESS (4'h1)
+`define MATRIX_ADDR_L     (4'h2)
+`define MATRIX_ADDR_H     (4'h3)
+
 

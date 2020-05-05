@@ -13,8 +13,8 @@ module sid_chip_testbench #() ();
     reg                     sel;
     reg                     stb;
     reg                     cycle;
-    wire                    dug_ack;
-    reg [2:0]               ctl;
+    wire                    dut_ack;
+    reg [2:0]               cti;
 
     wire                    audio_p;
     wire                    audio_n;
@@ -66,7 +66,7 @@ module sid_chip_testbench #() ();
         sel   = 1;
         stb   = 0;
         cycle = 0;
-        ctl   = 0;
+        cti   = 0;
 
         repeat(20) @(posedge clk);
 

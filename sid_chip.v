@@ -4,7 +4,8 @@ module sid_chip #(
     parameter ADDRESS_WIDTH = 16,
     parameter DATA_WIDTH = 8,
     parameter DATA_BYTES = 1,
-    parameter BASE_ADDRESS = 0
+    parameter BASE_ADDRESS = 0,
+    parameter FILTER_BASE_ADDRESS = 16'h0100
 )  (
     // Wishbone interface
     input wire                     rst_i,
@@ -33,6 +34,26 @@ module sid_chip #(
     reg [FILTER_COEF_BDEPTH-1:0] f_coefficient;
     reg [FILTER_COEF_BDEPTH-1:0] q_coefficient;
 
+
+    wire [DATA_WIDTH-1:0] filter_dat_o;
+    wire                  filter_ack_o;
+    reg [DATA_WIDTH-1:0]  sid_dat_o;
+    reg                   sid_ack_o;
+    always @(*) begin
+        if (filter_ack_o) begin
+            ack_o = 1;
+            dat_o = filter_dat_o;
+        end
+        else if (sid_ack_o) begin
+            ack_o = 1;
+            dat_o = sid_dat_o;
+        end
+        else begin
+            ack_o = 0;
+            dat_o = 0;
+        end
+    end
+    
     
     reg        valid_address;
     
@@ -113,7 +134,7 @@ module sid_chip #(
 
     
     always @(posedge clk_i) begin
-        ack_o <= cyc_i & valid_address;
+        sid_ack_o <= cyc_i & valid_address;
     end
     
     always @(posedge clk_i or posedge rst_i) begin
@@ -224,40 +245,40 @@ module sid_chip #(
 
 
     always @(*) begin
-        if      (local_address == `SID_OFFSET_VOICE1_FREQ_L ) begin  valid_address = 1;  dat_o = { voice1_freq[7:0] }; end
-        else if (local_address == `SID_OFFSET_VOICE1_FREQ_H ) begin  valid_address = 1;  dat_o = { voice1_freq[15:8] }; end
-        else if (local_address == `SID_OFFSET_VOICE1_PW_L   ) begin  valid_address = 1;  dat_o = { voice1_pw[7:0]    }; end
-        else if (local_address == `SID_OFFSET_VOICE1_PW_H   ) begin  valid_address = 1;  dat_o = { voice1_extra, voice1_pw[3:0] }; end
-        else if (local_address == `SID_OFFSET_VOICE1_CONTROL) begin  valid_address = 1;  dat_o = { voice1_noise, voice1_pulse, voice1_saw, voice1_tri, voice1_test, voice1_ringmod, voice1_sync, voice1_gate }; end
-        else if (local_address == `SID_OFFSET_VOICE1_ATTDEC ) begin  valid_address = 1;  dat_o = { voice1_attack, voice1_decay } ; end
-        else if (local_address == `SID_OFFSET_VOICE1_SSTREL ) begin  valid_address = 1;  dat_o = { voice1_sustain, voice1_release }; end
+        if      (local_address == `SID_OFFSET_VOICE1_FREQ_L ) begin  valid_address = 1;  sid_dat_o = { voice1_freq[7:0] }; end
+        else if (local_address == `SID_OFFSET_VOICE1_FREQ_H ) begin  valid_address = 1;  sid_dat_o = { voice1_freq[15:8] }; end
+        else if (local_address == `SID_OFFSET_VOICE1_PW_L   ) begin  valid_address = 1;  sid_dat_o = { voice1_pw[7:0]    }; end
+        else if (local_address == `SID_OFFSET_VOICE1_PW_H   ) begin  valid_address = 1;  sid_dat_o = { voice1_extra, voice1_pw[3:0] }; end
+        else if (local_address == `SID_OFFSET_VOICE1_CONTROL) begin  valid_address = 1;  sid_dat_o = { voice1_noise, voice1_pulse, voice1_saw, voice1_tri, voice1_test, voice1_ringmod, voice1_sync, voice1_gate }; end
+        else if (local_address == `SID_OFFSET_VOICE1_ATTDEC ) begin  valid_address = 1;  sid_dat_o = { voice1_attack, voice1_decay } ; end
+        else if (local_address == `SID_OFFSET_VOICE1_SSTREL ) begin  valid_address = 1;  sid_dat_o = { voice1_sustain, voice1_release }; end
 
-        //else if (local_address == `SID_OFFSET_VOICE2_FREQ_L ) begin  valid_address = 1;  dat_o = { voice2_freq[7:0]  }; end
-        //else if (local_address == `SID_OFFSET_VOICE2_FREQ_H ) begin  valid_address = 1;  dat_o = { voice2_freq[15:8] }; end
-        //else if (local_address == `SID_OFFSET_VOICE2_PW_L   ) begin  valid_address = 1;  dat_o = { voice2_pw[7:0]    }; end
-        //else if (local_address == `SID_OFFSET_VOICE2_PW_H   ) begin  valid_address = 1;  dat_o = { voice2_extra, voice2_pw[3:0] }; end
-        //else if (local_address == `SID_OFFSET_VOICE2_CONTROL) begin  valid_address = 1;  dat_o = { voice2_noise, voice2_pulse, voice2_saw, voice2_tri, voice2_test, voice2_ringmod, voice2_sync, voice2_gate }; end
-        //else if (local_address == `SID_OFFSET_VOICE2_ATTDEC ) begin  valid_address = 1;  dat_o = { voice2_attack, voice2_decay } ; end
-        //else if (local_address == `SID_OFFSET_VOICE2_SSTREL ) begin  valid_address = 1;  dat_o = { voice2_sustain, voice2_release }; end
+        //else if (local_address == `SID_OFFSET_VOICE2_FREQ_L ) begin  valid_address = 1;  sid_dat_o = { voice2_freq[7:0]  }; end
+        //else if (local_address == `SID_OFFSET_VOICE2_FREQ_H ) begin  valid_address = 1;  sid_dat_o = { voice2_freq[15:8] }; end
+        //else if (local_address == `SID_OFFSET_VOICE2_PW_L   ) begin  valid_address = 1;  sid_dat_o = { voice2_pw[7:0]    }; end
+        //else if (local_address == `SID_OFFSET_VOICE2_PW_H   ) begin  valid_address = 1;  sid_dat_o = { voice2_extra, voice2_pw[3:0] }; end
+        //else if (local_address == `SID_OFFSET_VOICE2_CONTROL) begin  valid_address = 1;  sid_dat_o = { voice2_noise, voice2_pulse, voice2_saw, voice2_tri, voice2_test, voice2_ringmod, voice2_sync, voice2_gate }; end
+        //else if (local_address == `SID_OFFSET_VOICE2_ATTDEC ) begin  valid_address = 1;  sid_dat_o = { voice2_attack, voice2_decay } ; end
+        //else if (local_address == `SID_OFFSET_VOICE2_SSTREL ) begin  valid_address = 1;  sid_dat_o = { voice2_sustain, voice2_release }; end
         //
-        //else if (local_address == `SID_OFFSET_VOICE3_FREQ_L ) begin  valid_address = 1;  dat_o = { voice3_freq[7:0]  }; end
-        //else if (local_address == `SID_OFFSET_VOICE3_FREQ_H ) begin  valid_address = 1;  dat_o = { voice3_freq[15:8] }; end
-        //else if (local_address == `SID_OFFSET_VOICE3_PW_L   ) begin  valid_address = 1;  dat_o = { voice3_pw[7:0]    }; end
-        //else if (local_address == `SID_OFFSET_VOICE3_PW_H   ) begin  valid_address = 1;  dat_o = { voice3_extra, voice3_pw[3:0] }; end
-        //else if (local_address == `SID_OFFSET_VOICE3_CONTROL) begin  valid_address = 1;  dat_o = { voice3_noise, voice3_pulse, voice3_saw, voice3_tri, voice3_test, voice3_ringmod, voice3_sync, voice3_gate }; end
-        //else if (local_address == `SID_OFFSET_VOICE3_ATTDEC ) begin  valid_address = 1;  dat_o = { voice3_attack, voice3_decay } ; end
-        //else if (local_address == `SID_OFFSET_VOICE3_SSTREL ) begin  valid_address = 1;  dat_o = { voice3_sustain, voice3_release }; end
+        //else if (local_address == `SID_OFFSET_VOICE3_FREQ_L ) begin  valid_address = 1;  sid_dat_o = { voice3_freq[7:0]  }; end
+        //else if (local_address == `SID_OFFSET_VOICE3_FREQ_H ) begin  valid_address = 1;  sid_dat_o = { voice3_freq[15:8] }; end
+        //else if (local_address == `SID_OFFSET_VOICE3_PW_L   ) begin  valid_address = 1;  sid_dat_o = { voice3_pw[7:0]    }; end
+        //else if (local_address == `SID_OFFSET_VOICE3_PW_H   ) begin  valid_address = 1;  sid_dat_o = { voice3_extra, voice3_pw[3:0] }; end
+        //else if (local_address == `SID_OFFSET_VOICE3_CONTROL) begin  valid_address = 1;  sid_dat_o = { voice3_noise, voice3_pulse, voice3_saw, voice3_tri, voice3_test, voice3_ringmod, voice3_sync, voice3_gate }; end
+        //else if (local_address == `SID_OFFSET_VOICE3_ATTDEC ) begin  valid_address = 1;  sid_dat_o = { voice3_attack, voice3_decay } ; end
+        //else if (local_address == `SID_OFFSET_VOICE3_SSTREL ) begin  valid_address = 1;  sid_dat_o = { voice3_sustain, voice3_release }; end
         
-        else if (local_address == `SID_OFFSET_FILT_L        ) begin  valid_address = 1;  dat_o = { f_coefficient[7:0] }; end //{ filter_extra, filter_center[2:0] }; end
-        else if (local_address == `SID_OFFSET_FILT_H        ) begin  valid_address = 1;  dat_o = { f_coefficient[15:8] } ; end //{ filter_center[10:3] } ; end
-        else if (local_address == `SID_OFFSET_RESFILT       ) begin  valid_address = 1;  dat_o = { filter_res, filter_ex, filter_v3, filter_v2, filter_v1 }; end
-        else if (local_address == `SID_OFFSET_MODEVOL       ) begin  valid_address = 1;  dat_o = { filter_3_off, filter_hp, filter_bp, filter_lp, volume }; end
-        else if (local_address == `SID_OFFSET_FILT_Q_L      ) begin  valid_address = 1;  dat_o = { q_coefficient[7:0] }; end
-        else if (local_address == `SID_OFFSET_FILT_Q_H      ) begin  valid_address = 1;  dat_o = { q_coefficient[15:8] }; end
+        else if (local_address == `SID_OFFSET_FILT_L        ) begin  valid_address = 1;  sid_dat_o = { f_coefficient[7:0] }; end //{ filter_extra, filter_center[2:0] }; end
+        else if (local_address == `SID_OFFSET_FILT_H        ) begin  valid_address = 1;  sid_dat_o = { f_coefficient[15:8] } ; end //{ filter_center[10:3] } ; end
+        else if (local_address == `SID_OFFSET_RESFILT       ) begin  valid_address = 1;  sid_dat_o = { filter_res, filter_ex, filter_v3, filter_v2, filter_v1 }; end
+        else if (local_address == `SID_OFFSET_MODEVOL       ) begin  valid_address = 1;  sid_dat_o = { filter_3_off, filter_hp, filter_bp, filter_lp, volume }; end
+        else if (local_address == `SID_OFFSET_FILT_Q_L      ) begin  valid_address = 1;  sid_dat_o = { q_coefficient[7:0] }; end
+        else if (local_address == `SID_OFFSET_FILT_Q_H      ) begin  valid_address = 1;  sid_dat_o = { q_coefficient[15:8] }; end
         
         else begin 
             valid_address = 0;
-            dat_o = 0;
+            sid_dat_o = 0;
         end
     end
 
@@ -470,37 +491,49 @@ module sid_chip #(
         end
     end
 
-    wire signed [7:0] audio_filtered;
-    wire en_pass = ~|{filter_lp, filter_hp, filter_bp};
+    wire signed [11:0] audio_filtered;
+
+    reg [5:0]          filter_divider = 0;
+    reg                filter_pulse;
+    always @(posedge env_clock) begin
+        if (filter_divider) begin
+            filter_divider <= filter_divider - 1;
+            filter_pulse   <= 0;
+        end
+        else begin
+            filter_divider <= 20;
+            filter_pulse   <= 1;
+        end
+    end
+                                   
+    filter_bank #(
+        .AUDIO_BDEPTH     ( 12 ),
+        .FILTER_COUNT     ( 4 ),
+        .BASE_ADDRESS     ( FILTER_BASE_ADDRESS )
+    ) filter_bank_inst (
+        .rst_i ( rst ),
+        .clk_i ( clk ),
+        
+        .adr_i ( adr_i ),
+        .dat_i ( dat_i ),
+        .dat_o ( filter_dat_o ),
+        .we_i  ( we_i ),
+        .sel_i ( sel_i ),
+        .stb_i ( stb_i ),
+        .cyc_i ( cyc_i ),
+        .ack_o ( filter_ack_o ),
+        .cti_i ( cti_i ),
+        
+        .audio_in ( audio_amplified[12:1] ),
+        .valid_in ( filter_pulse ),
+        
+        .audio_out ( audio_filtered ),
+        .valid_out (  )
+    );
     
-    sid_chip_filter #(
-        .AUDIO_BDEPTH      (12),
-        .AUDIO_OUT_BDEPTH  (8),
-        .FILTER_BDEPTH     (16),
-        .FILTER_COEF_BDEPTH(16),
-        .INPUT_GAIN_BITS   (6),
-        .OUTPUT_GAIN_BITS  (6)
-    ) filter_inst (
-        .clk          (env_clock), // 1mhz / 8
-
-        .f_coefficient(f_coefficient),
-        .q_coefficient(q_coefficient),
-        .en_pass      (en_pass),
-        .en_lowpass   (filter_lp),
-        .en_highpass  (filter_hp),
-        .en_bandpass  (filter_bp),
-
-        .audio_in     (audio_amplified[12:1]),
-        .audio_out    (audio_filtered),
-
-        .debug        (debug)
-    );    
-    
-    
-
     
     wire       audio_sign = audio_filtered < 0;
-    wire [7:0] audio_abs = (audio_sign ? -audio_filtered : audio_filtered);
+    wire [7:0] audio_abs = (audio_sign ? -audio_filtered[11:4] : audio_filtered[11:4]);
 
     
     reg [15:0] error_accumulator = 0;

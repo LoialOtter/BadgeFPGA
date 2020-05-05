@@ -7,12 +7,12 @@ module wishbone_master_testbench #() ();
     localparam MAX_PAYLOAD = 8;
     
     localparam INTERFACE_WIDTH = (MAX_PAYLOAD * DATA_WIDTH);
-    localparam INTERFACE_LENGTH_N = ((MAX_PAYLOAD <=  2) ? 1 :
-                                     (MAX_PAYLOAD <=  4) ? 2 :
-                                     (MAX_PAYLOAD <=  8) ? 3 :
-                                     (MAX_PAYLOAD <= 16) ? 4 :
-                                     (MAX_PAYLOAD <= 32) ? 5 :
-                                     /*           <= 64 */ 6);
+    localparam INTERFACE_LENGTH_N = ((MAX_PAYLOAD <=  2) ? 2 :
+                                     (MAX_PAYLOAD <=  4) ? 3 :
+                                     (MAX_PAYLOAD <=  8) ? 4 :
+                                     (MAX_PAYLOAD <= 16) ? 5 :
+                                     (MAX_PAYLOAD <= 32) ? 6 :
+                                     /*           <= 64 */ 7);
 
     reg                          rst_i;
     reg                          clk_i;

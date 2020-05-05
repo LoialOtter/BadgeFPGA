@@ -24,7 +24,9 @@ module wishbone_memory #(
 
     localparam MEMORY_SIZE_I  = (MEMORY_SIZE <=  512 ? 9 :
                                  MEMORY_SIZE <= 1024 ? 10 :
-                                 MEMORY_SIZE <= 2048 ? 11 : 12);
+                                 MEMORY_SIZE <= 2048 ? 11 : 
+                                 MEMORY_SIZE <= 4096 ? 12 :
+                                 MEMORY_SIZE <= 8192 ? 13 : 14);
     
     wire [ADDRESS_WIDTH-1:0] local_address;
     wire                     valid_address;
